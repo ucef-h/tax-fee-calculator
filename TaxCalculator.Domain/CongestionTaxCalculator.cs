@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using TaxCalculator.Domain;
 using TaxCalculator.Domain.Vehicles;
 
@@ -17,29 +19,41 @@ public class CongestionTaxCalculator
 
     public int GetTax(Vehicle vehicle, DateTime[] dates)
     {
-        var intervalStart = dates[0];
+
         int totalFee = 0;
-        foreach (var date in dates)
+        if (dates.Length == 0)
+            return totalFee;
+
+        foreach(IEnumerable<DateTime> group in dates.ToList().GroupBy(x => x.Date))
         {
-            int nextFee = GetTollFee(date, vehicle);
-            int tempFee = GetTollFee(intervalStart, vehicle);
-
-            long diffInMillies = date.Millisecond - intervalStart.Millisecond;
-            long minutes = diffInMillies / 1000 / 60;
-
-            if (minutes <= 60)
+            int dayTotalFee = 0;
+            var intervalStart = group.First();
+            foreach (var date in group)
             {
-                if (totalFee > 0) totalFee -= tempFee;
-                if (nextFee >= tempFee) tempFee = nextFee;
-                totalFee += tempFee;
+                int nextFee = GetTollFee(date, vehicle);
+                int tempFee = GetTollFee(intervalStart, vehicle);
+
+                long diffInMillies = date.Millisecond - intervalStart.Millisecond;
+                long minutes = diffInMillies / 1000 / 60;
+
+                if (minutes <= 60)
+                {
+                    if (dayTotalFee > 0) dayTotalFee -= tempFee;
+                    if (nextFee >= tempFee) tempFee = nextFee;
+                    dayTotalFee += tempFee;
+                }
+                else
+                {
+                    dayTotalFee += nextFee;
+                }
+                if (dayTotalFee > 60) dayTotalFee = 60;
             }
-            else
-            {
-                totalFee += nextFee;
-            }
+
+            totalFee += dayTotalFee;
+
         }
 
-        if (totalFee > 60) totalFee = 60;
+
         return totalFee;
     }
 
